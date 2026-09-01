@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NS Legacy Fuel</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="pump-display" id="pumpDisplay">
+        <div class="pump-shell">
+            <div class="topbar">
+                <div class="brand">
+                    <div class="brand-title" id="brandTitle">GAS STATION</div>
+                    <div class="brand-sub" id="brandSubtitle">Fuel dispenser • NS Legacy Fuel</div>
+                </div>
+            </div>
+
+            <div class="selection-screen" id="selectionScreen">
+                <div class="screen-heading">
+                    <div class="screen-kicker">PLEASE SELECT</div>
+                    <div class="screen-title">FUEL TYPE</div>
+                    <div class="screen-sub">Choose your grade before fueling</div>
+                </div>
+
+                <div class="fuel-options" id="fuelOptions"></div>
+                <button class="cancel-selection" id="cancelSelection" type="button">CLOSE</button>
+            </div>
+
+            <div class="payment-summary" id="paymentSummary">
+                <div class="screen-heading">
+                    <div class="screen-kicker">TRANSACTION COMPLETE</div>
+                    <div class="screen-title">PAYMENT SUMMARY</div>
+                    <div class="screen-sub">Fueling finished — close this screen and return the nozzle</div>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-main">
+                        <div class="summary-label">TOTAL PAID</div>
+                        <div class="summary-amount" id="summaryAmount">$0.00</div>
+                    </div>
+                    <div class="summary-grid">
+                        <div><span>FUEL</span><strong id="summaryGrade">87 REGULAR</strong></div>
+                        <div><span>GALLONS</span><strong id="summaryGallons">0.00 GAL</strong></div>
+                    </div>
+                </div>
+                <button class="cancel-selection" id="summaryClose" type="button">CLOSE</button>
+            </div>
+
+            <div class="fuel-screen" id="fuelScreen">
+                <div class="fuel-header">
+                    <div>
+                        <div class="screen-kicker">SELECTED FUEL</div>
+                        <div class="selected-grade" id="selectedGrade">87</div>
+                        <div class="selected-name" id="selectedName">REGULAR UNLEADED</div>
+                    </div>
+                    <div class="grade-pill" id="gradePill">87 REGULAR</div>
+                </div>
+
+                <div class="content">
+                    <div class="side-card">
+                        <div class="label">Vehicle tank</div>
+                        <div class="meter"><div class="meter-fill" id="meterFill"></div></div>
+                        <div class="level-row">
+                            <div class="level-value" id="tankValue">0.00</div>
+                            <div class="level-percent">%</div>
+                        </div>
+                    </div>
+
+                    <div class="main-card">
+                        <div class="amount-row">
+                            <div class="amount-box">
+                                <div class="label">Price per gallon</div>
+                                <div class="amount">
+                                    <div class="currency">$</div>
+                                    <div class="number" id="pricePerGallon">0.00</div>
+                                </div>
+                            </div>
+                            <div class="amount-box gallons-box">
+                                <div class="label">Gallons</div>
+                                <div class="amount">
+                                    <div class="number" id="gallonsValue">0.00</div>
+                                    <div class="unit">GAL</div>
+                                </div>
+                            </div>
+                            <div class="amount-box primary">
+                                <div class="label">Total price</div>
+                                <div class="amount">
+                                    <div class="currency">$</div>
+                                    <div class="number red" id="costValue">0.00</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+
+                <div class="balances">
+                    <div class="balance-card">
+                        <div class="balance-icon">BANK</div>
+                        <div>
+                            <div class="label">Bank balance</div>
+                            <div class="balance-value" id="bankBalance">$0.00</div>
+                        </div>
+                    </div>
+                    <div class="balance-card">
+                        <div class="balance-icon">CASH</div>
+                        <div>
+                            <div class="label">Cash balance</div>
+                            <div class="balance-value" id="cashBalance">$0.00</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="jerry-display" id="jerryDisplay">
+        <div class="jerry-shell">
+            <div class="jerry-top">
+                <div>
+                    <div class="jerry-kicker">GAS CAN</div>
+                    <div class="jerry-title">REFUELING VEHICLE</div>
+                </div>
+                <div class="jerry-percent" id="jerryPercent">0%</div>
+            </div>
+            <div class="jerry-bar">
+                <div class="jerry-fill" id="jerryFill"></div>
+            </div>
+            <div class="jerry-can-level">
+                <div class="jerry-can-label">CAN REMAINING</div>
+                <div class="jerry-can-meter"><div class="jerry-can-fill" id="jerryCanFill"></div></div>
+                <div class="jerry-can-percent" id="jerryCanPercent">100%</div>
+            </div>
+            <div class="jerry-bottom">
+                <span id="jerryStatusText">FUEL LEVEL</span>
+                <span>MOVE AWAY TO STOP</span>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
