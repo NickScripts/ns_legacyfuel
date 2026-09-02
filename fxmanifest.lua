@@ -2,7 +2,7 @@ fx_version "cerulean"
 game "gta5"
 author "NS Legacy Fuel"
 description "Realistic multiplayer fuel system with physical nozzles, fuel grades, jerry cans and configurable gas-pump behavior"
-version "1.0.0"
+version "1.0.2"
 
 dependency "ox_target"
 
