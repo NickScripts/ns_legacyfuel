@@ -102,7 +102,16 @@ Existing scripts using LegacyFuel-style fuel exports/functions can continue to w
 
 ### Full Fueling Process
 
-> 🎬 https://youtu.be/f1WERhijviE
+> 🎬 https://streamable.com/pf0oz2
+
+### Nozzle & Hose Behavior
+
+> 🎬 https://streamable.com/4nzt62
+
+### Jerry Can
+
+> 🎬 
+
 
 ---
 

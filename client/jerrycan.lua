@@ -1,12 +1,13 @@
 local S = NSLegacyFuel.State
 local canWeapon = Config.JerryCan.WeaponHash
+local jerryCanFuel = 0
 
-RegisterNetEvent("ns_legacyfuel:syncJerryCanAmmo", function(ammo)
-    ammo = math.max(0, math.min(Config.JerryCan.Capacity, math.floor(tonumber(ammo) or 0)))
-    SetPedAmmo(PlayerPedId(), canWeapon, ammo)
+RegisterNetEvent("ns_legacyfuel:syncJerryCanFuel", function(fuel)
+    local capacity = math.max(1, tonumber(Config.JerryCan.Capacity) or 4500)
+    jerryCanFuel = math.max(0, math.min(capacity, tonumber(fuel) or 0))
 end)
 
--- Ask the server for the canonical metadata value whenever the can is equipped.
+-- Ask the server for the canonical metadata.fuel value whenever the can is equipped.
 CreateThread(function()
     local wasEquipped = false
     while true do
@@ -19,13 +20,7 @@ CreateThread(function()
     end
 end)
 
-local function refillPrice(ammo)
-    local capacity = Config.JerryCan.Capacity
-    local missing = math.max(0, capacity - math.min(capacity, tonumber(ammo) or 0))
-    return math.max(0, math.ceil((missing / capacity) * Config.JerryCan.RefillCost))
-end
-
-RegisterNetEvent("ns_legacyfuel:jerryCanResult", function(success, action, newBank, newCash, amount)
+RegisterNetEvent("ns_legacyfuel:jerryCanResult", function(success, action, newBank, newCash, amount, fuel)
     if newBank ~= nil or newCash ~= nil then
         SendNUIMessage({
             type = "balances",
@@ -47,14 +42,13 @@ RegisterNetEvent("ns_legacyfuel:jerryCanResult", function(success, action, newBa
         return
     end
 
-    if action == "purchase" then
-        SetPedAmmo(S.ped, canWeapon, Config.JerryCan.Capacity)
-        TriggerServerEvent("ns_legacyfuel:updateJerryCanAmmo", Config.JerryCan.Capacity)
-        NSLegacyFuel.Notify("Jerry Can", "Jerry can purchased for $" .. tostring(amount) .. " (full)", "green")
-    elseif action == "refill" then
-        SetPedAmmo(S.ped, canWeapon, Config.JerryCan.Capacity)
-        TriggerServerEvent("ns_legacyfuel:updateJerryCanAmmo", Config.JerryCan.Capacity)
-        NSLegacyFuel.Notify("Jerry Can", "Jerry can refilled for $" .. tostring(amount), "green")
+    if action == "purchase" or action == "refill" then
+        jerryCanFuel = math.max(0, math.min(Config.JerryCan.Capacity, tonumber(fuel) or Config.JerryCan.Capacity))
+        if action == "purchase" then
+            NSLegacyFuel.Notify("Jerry Can", "Jerry can purchased for $" .. tostring(amount) .. " (full)", "green")
+        else
+            NSLegacyFuel.Notify("Jerry Can", "Jerry can refilled for $" .. tostring(amount), "green")
+        end
     end
 end)
 
@@ -89,14 +83,14 @@ function NSLegacyFuel.StartJerryCanFueling(vehicle)
     if not tankPos then return false end
 
     local fuel = GetFuel(vehicle)
-    local ammo = GetAmmoInPedWeapon(S.ped, canWeapon)
+    local canFuel = jerryCanFuel
 
     if fuel >= 100.0 then
         NSLegacyFuel.Notify("Jerry Can", "This vehicle is already full.", "red")
         return false
     end
 
-    if ammo <= 0 then
+    if canFuel <= 0 then
         NSLegacyFuel.Notify("Jerry Can", "Your gas can is empty.", "red")
         return false
     end
@@ -117,9 +111,9 @@ function NSLegacyFuel.StartJerryCanFueling(vehicle)
         type = "jerryStatus",
         status = true,
         fuel = fuel,
-        ammo = ammo,
+        canFuel = canFuel,
         capacity = Config.JerryCan.Capacity,
-        canPercent = (ammo / Config.JerryCan.Capacity) * 100.0
+        canPercent = (canFuel / Config.JerryCan.Capacity) * 100.0
     })
 
     return true
@@ -141,7 +135,7 @@ CreateThread(function()
             else
                 local _, _, _, tankPos = NSLegacyFuel.GetVehicleTankData(vehicle)
                 local distance = tankPos and #(S.pedCoords - tankPos) or 999.0
-                local ammo = GetAmmoInPedWeapon(S.ped, canWeapon)
+                local canFuel = jerryCanFuel
                 local fuel = GetFuel(vehicle)
 
                 -- Any movement breaks the fueling animation/session. This
@@ -154,7 +148,7 @@ CreateThread(function()
                     or IsPedRagdoll(S.ped)
                 then
                     NSLegacyFuel.StopJerryCanFueling()
-                elseif ammo <= 0 or fuel >= 100.0 then
+                elseif canFuel <= 0 or fuel >= 100.0 then
                     NSLegacyFuel.StopJerryCanFueling()
                 else
                     if not IsEntityPlayingAnim(S.ped, Config.Animation.FuelDict, Config.Animation.FuelAnim, 3) then
@@ -170,20 +164,21 @@ CreateThread(function()
                         math.ceil((newFuel - fuel) / Config.JerryCan.FuelPerAmmo)
                     ))
 
-                    local remainingAmmo = math.max(0, ammo - used)
-                    SetPedAmmo(S.ped, canWeapon, remainingAmmo)
-                    TriggerServerEvent("ns_legacyfuel:updateJerryCanAmmo", remainingAmmo)
+                    local remainingFuel = math.max(0, canFuel - used)
+                    jerryCanFuel = remainingFuel
+
+                    TriggerServerEvent("ns_legacyfuel:updateJerryCanFuel", remainingFuel)
                     SetFuel(vehicle, newFuel)
 
                     SendNUIMessage({
                         type = "jerryUpdate",
                         fuel = newFuel,
-                        ammo = remainingAmmo,
+                        canFuel = remainingFuel,
                         capacity = Config.JerryCan.Capacity,
-                        canPercent = (remainingAmmo / Config.JerryCan.Capacity) * 100.0
+                        canPercent = (remainingFuel / Config.JerryCan.Capacity) * 100.0
                     })
 
-                    if remainingAmmo <= 0 then
+                    if remainingFuel <= 0 then
                         NSLegacyFuel.Notify("Jerry Can", "Your gas can is empty. Refill it at a pump.", "red")
                         NSLegacyFuel.StopJerryCanFueling()
                     end
@@ -209,8 +204,7 @@ function NSLegacyFuel.RefillJerryCan()
         return
     end
 
-    local ammo = GetAmmoInPedWeapon(S.ped, canWeapon)
-    if ammo >= Config.JerryCan.Capacity then
+    if jerryCanFuel >= Config.JerryCan.Capacity then
         NSLegacyFuel.Notify("Jerry Can", "Your gas can is already full.", "red")
         return
     end

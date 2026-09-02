@@ -27,67 +27,66 @@ end
 
 local function getJerryCanServerState(src)
     local capacity = math.max(1, tonumber(Config.JerryCan.Capacity) or 4500)
-    if GetResourceState("ox_inventory") == "started" then
-        local ox = exports.ox_inventory
-        local ok, weapon = pcall(function() return ox:GetCurrentWeapon(src) end)
-        if ok and weapon and tostring(weapon.name) == tostring(Config.JerryCan.Item) and weapon.slot then
-            local metadata = weapon.metadata or {}
-            -- `fuel` is the canonical jerry-can level. Do not use ox weapon
-            -- ammo metadata here: ox_inventory can use that value for weapon/item
-            -- handling and weight calculations.
-            local ammo = tonumber(metadata.fuel)
-            if ammo == nil then ammo = tonumber(weapon.ammo) end
-            if ammo == nil then ammo = capacity end
-            return math.max(0, math.min(capacity, math.floor(ammo))), weapon.slot, metadata
-        end
-        local okSlot, slot = pcall(function() return ox:GetSlotIdWithItem(src, Config.JerryCan.Item) end)
-        if okSlot and slot then
-            local okData, data = pcall(function() return ox:GetSlot(src, slot) end)
-            if okData and data then
-                local metadata = data.metadata or {}
-                local ammo = tonumber(metadata.fuel)
-                if ammo == nil then ammo = tonumber(data.ammo) end
-                if ammo == nil then ammo = capacity end
-                return math.max(0, math.min(capacity, math.floor(ammo))), slot, metadata
-            end
-        end
+
+    if GetResourceState("ox_inventory") ~= "started" then
+        return nil, nil, nil
     end
 
-    local xPlayer = ESX and ESX.GetPlayerFromId(src)
-    if xPlayer and xPlayer.getWeapon then
-        local ok, weapon = pcall(function() return xPlayer.getWeapon(Config.JerryCan.Item) end)
-        if ok and weapon then
-            return math.max(0, math.min(capacity, math.floor(tonumber(weapon.ammo) or 0))), nil, nil
-        end
+    local ox = exports.ox_inventory
+
+    -- Fuel is stored exclusively in metadata.fuel. Never read weapon ammo.
+    local okSlot, slot = pcall(function()
+        return ox:GetSlotIdWithItem(src, Config.JerryCan.Item)
+    end)
+
+    if not okSlot or not slot then
+        return nil, nil, nil
     end
-    return nil, nil, nil
+
+    local okData, data = pcall(function()
+        return ox:GetSlot(src, slot)
+    end)
+
+    if not okData or not data then
+        return nil, nil, nil
+    end
+
+    local metadata = data.metadata or {}
+    local fuel = tonumber(metadata.fuel)
+
+    if fuel == nil then
+        fuel = capacity
+    end
+
+    fuel = math.max(0, math.min(capacity, fuel))
+    return fuel, slot, metadata
 end
 
-local function setJerryCanServerState(src, ammo, slot, metadata)
+local function setJerryCanServerState(src, fuel, slot, metadata)
     local capacity = math.max(1, tonumber(Config.JerryCan.Capacity) or 4500)
-    ammo = math.max(0, math.min(capacity, math.floor(tonumber(ammo) or 0)))
-    local percent = math.max(0.0, math.min(100.0, (ammo / capacity) * 100.0))
+    fuel = math.max(0, math.min(capacity, tonumber(fuel) or 0))
 
-    local xPlayer = ESX and ESX.GetPlayerFromId(src)
-    if xPlayer and xPlayer.updateWeaponAmmo then
-        pcall(function() xPlayer.updateWeaponAmmo(Config.JerryCan.Item, ammo) end)
-    end
+    local percent = (fuel / capacity) * 100.0
+    -- ox_inventory removes zero-durability items. Keep an empty can barely
+    -- above zero so it remains in the inventory and can be refilled.
+    local durability = fuel <= 0 and 0.01 or math.max(0.01, math.min(100.0, percent))
 
-    if GetResourceState("ox_inventory") == "started" then
+    if GetResourceState("ox_inventory") == "started" and slot then
         local ox = exports.ox_inventory
-        if slot then
-            metadata = metadata or {}
-            metadata.fuel = ammo
-            -- Remove old fields left by previous versions. `ammo` metadata can
-            -- alter ox_inventory weapon weight and `durability` caused duplicate UI.
-            metadata.ammo = nil
-            metadata.durability = nil
-            pcall(function() ox:SetMetadata(src, slot, metadata) end)
-        end
+        metadata = metadata or {}
+
+        -- Fuel is the only jerry-can fuel value. Remove any legacy ammo field.
+        metadata.fuel = fuel
+        metadata.durability = durability
+        metadata.ammo = nil
+
+        pcall(function()
+            ox:SetMetadata(src, slot, metadata)
+        end)
     end
 
-    jerryCanState[src] = ammo
-    return ammo, percent
+    jerryCanState[src] = fuel
+    return fuel, percent
 end
 
 local function notifyPlayer(src, title, message, color)
@@ -468,7 +467,7 @@ RegisterNetEvent("ns_legacyfuel:purchaseJerryCan", function()
 
     local added = false
     if GetResourceState("ox_inventory") == "started" then
-        local ok, result = pcall(function() return exports.ox_inventory:AddItem(src, Config.JerryCan.Item, 1, { fuel = Config.JerryCan.Capacity }) end)
+        local ok, result = pcall(function() return exports.ox_inventory:AddItem(src, Config.JerryCan.Item, 1, { fuel = Config.JerryCan.Capacity, durability = 100 }) end)
         added = ok and result ~= false
     else
         local ok = pcall(function() xPlayer.addInventoryItem(Config.JerryCan.Item, 1) end)
@@ -491,17 +490,17 @@ RegisterNetEvent("ns_legacyfuel:refillJerryCan", function()
     local xPlayer = ESX.GetPlayerFromId(src)
     if not xPlayer then return end
 
-    local ammo, slot, metadata = getJerryCanServerState(src)
-    if ammo == nil then
+    local fuel, slot, metadata = getJerryCanServerState(src)
+    if fuel == nil then
         TriggerClientEvent("ns_legacyfuel:jerryCanResult", src, false, "missing")
         return
     end
-    if ammo >= Config.JerryCan.Capacity then
+    if fuel >= Config.JerryCan.Capacity then
         TriggerClientEvent("ns_legacyfuel:jerryCanResult", src, false, "full")
         return
     end
 
-    local missing = Config.JerryCan.Capacity - ammo
+    local missing = Config.JerryCan.Capacity - fuel
     local price = math.max(0, math.ceil((missing / Config.JerryCan.Capacity) * (tonumber(Config.JerryCan.RefillCost) or 0)))
     local paidFrom, bankOrNew, cashOrNew = removePayment(xPlayer, price, Config.JerryCan.UseBankFirst, Config.JerryCan.AllowCashFallback)
     if not paidFrom then
@@ -516,17 +515,17 @@ end)
 
 RegisterNetEvent("ns_legacyfuel:requestJerryCanSync", function()
     local src = source
-    local ammo = getJerryCanServerState(src)
-    if ammo ~= nil then
-        jerryCanState[src] = ammo
-        TriggerClientEvent("ns_legacyfuel:syncJerryCanAmmo", src, ammo)
+    local fuel = getJerryCanServerState(src)
+    if fuel ~= nil then
+        jerryCanState[src] = fuel
+        TriggerClientEvent("ns_legacyfuel:syncJerryCanFuel", src, fuel)
     end
 end)
 
-RegisterNetEvent("ns_legacyfuel:updateJerryCanAmmo", function(ammo)
+RegisterNetEvent("ns_legacyfuel:updateJerryCanFuel", function(fuel)
     if Config.Framework.Standalone or not ESX or not Config.JerryCan.Enabled then return end
     local src = source
-    local proposed = math.max(0, math.min(tonumber(Config.JerryCan.Capacity) or 4500, math.floor(tonumber(ammo) or 0)))
+    local proposed = math.max(0, math.min(tonumber(Config.JerryCan.Capacity) or 4500, tonumber(fuel) or 0))
     local current, slot, metadata = getJerryCanServerState(src)
     if current == nil then return end
 
